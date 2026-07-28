@@ -652,7 +652,7 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   var CARD_Z = [2,4,6,6,4,2];
   var OFF = [0,.015,.03,.045,.06,.075];
 
-      function hangerSVG(p){
+  function hangerSVG(p){
     var haut = '<svg viewBox="0 0 190 90" fill="none" aria-hidden="true" style="width:100%;height:auto;display:block">'
       + '<path d="M95 16c-9 0-15 6-15 13 0 6 4 9 9 11l6 3v6" stroke="#F0EBDF" stroke-width="4" stroke-linecap="round"/>'
       + '<path d="M95 49L26 92c-5 3-3 10 3 10h132c6 0 8-7 3-10z" stroke="#F0EBDF" stroke-width="4" stroke-linejoin="round"/>'
@@ -670,10 +670,7 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
         + '</svg>';
     }
     return haut + corps;
-  }
-
-  }
-    var stage = document.getElementById('railStage');
+  var stage = document.getElementById('railStage');
   var hangers = [];
   function construireCintres(){
   PIECES.forEach(function(p,i){
