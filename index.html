@@ -126,7 +126,11 @@ nav.dark .panier:hover{background:var(--cream);color:var(--night)}
   width:7px;height:7px;border-radius:50%;background:var(--cream);box-shadow:inset 0 0 0 1.5px rgba(27,42,74,.45);
 }
 .tag-a{top:40%;left:calc(50% - 150px);transform:rotate(-7deg);z-index:15}
-.tag-b{top:44%;left:calc(50% + 280px);transform:rotate(5deg);background:var(--stamp);color:#fff;z-index:16}
+/* ancre sur le polaroid (.snap, top:15%) plutot que sur la hauteur de fenetre :
+   le polaroid a une hauteur fixe en px, donc un badge en pourcentage derivait
+   et finissait par masquer la legende nom/prix sur les ecrans courts.
+   La valeur reproduit le rapport d'origine, et le tient a toutes les hauteurs. */
+.tag-b{top:calc(15% + 253px);left:calc(50% + 280px);transform:rotate(5deg);background:var(--stamp);color:#fff;z-index:16}
 .tag-b::before{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.6)}
 
 .polaroid{
@@ -134,8 +138,16 @@ nav.dark .panier:hover{background:var(--cream);color:var(--night)}
   box-shadow:2px 8px 22px rgba(27,42,74,.15);
 }
 .polaroid img,.polaroid svg{width:100%;height:auto;display:block;background:var(--paper)}
+/* Toutes les photos d'article du hero partagent le meme cadrage portrait 3:4.
+   La hauteur decoule de la largeur, donc deux vignettes de meme largeur ont
+   forcement la meme hauteur, quel que soit le format de la photo d'origine.
+   cover + center recadre au centre sans deformer ; l'image reste dans la zone
+   de contenu du polaroid, la legende occupant le padding bas reserve. */
+.polaroid img{
+  aspect-ratio:3/4;height:auto;object-fit:cover;object-position:center;
+}
 .polaroid .cap{
-  position:absolute;bottom:9px;left:0;right:0;text-align:center;
+  position:absolute;bottom:9px;left:0;right:0;text-align:center;z-index:2;
   font-family:'Instrument Serif',serif;font-size:14px;color:rgba(27,42,74,.65);
 }
 .snap{top:15%;left:calc(50% + 250px);width:176px;animation:sway 7s ease-in-out 1.8s infinite}
@@ -153,7 +165,9 @@ nav.dark .panier:hover{background:var(--cream);color:var(--night)}
   position:absolute;bottom:14px;right:30px;z-index:4;font-family:'Instrument Serif',serif;
   font-size:88px;line-height:.9;letter-spacing:-.04em;color:rgba(27,42,74,.15);
 }
-.thumbs{position:absolute;bottom:22px;left:30px;z-index:14;display:flex;align-items:flex-end;gap:18px}
+/* sous .h1block (z-index 12) : sur un ecran court, les vignettes devenues
+   plus hautes atteignent le titre, et c'est le texte qui doit rester lisible */
+.thumbs{position:absolute;bottom:22px;left:30px;z-index:11;display:flex;align-items:flex-end;gap:18px}
 .thumb{position:relative;transition:transform .25s ease}
 .thumb:hover{transform:translateY(-5px)}
 
