@@ -663,9 +663,11 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
       + '</svg>';
   }
 
-  var stage = document.getElementById('railStage');
+    var stage = document.getElementById('railStage');
   var hangers = [];
+  function construireCintres(){
   PIECES.forEach(function(p,i){
+
     var el = document.createElement('div');
     el.className = 'hanger';
     el.style.zIndex = CARD_Z[i];
@@ -682,11 +684,15 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     }
     el.addEventListener('click', open);
     el.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } });
-    stage.appendChild(el);
+        stage.appendChild(el);
     hangers.push(el);
   });
+  }
+  construireCintres();
+  chargerPieces();
 
   var railSec = document.querySelector('.rail-sec');
+
   var railBar = document.getElementById('railBar');
 
   function lerp(t,a,b){ return a + (b-a)*t; }
