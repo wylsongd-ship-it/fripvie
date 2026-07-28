@@ -602,6 +602,37 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     { nom:"Blazer croisé",    prix:"38 €", tail:"T. 40", c:"#2C3E63", d:"#F0EBDF", desc:"Blazer croisé bleu marine, boutons dorés, épaules structurées. L'élégance d'une pièce vintage." },
     { nom:"Jean droit",       prix:"22 €", tail:"T. 32", c:"#4A6491", d:"#DCCFA8", desc:"Jean en denim brut coupe droite, taille haute, délavage léger. Une valeur sûre." }
   ];
+
+    function lireCSV(t){
+    var L = t.trim().split("\n");
+    var H = L[0].split(",").map(function(x){return x.trim().toLowerCase();});
+    var R = [];
+    for (var i=1;i<L.length;i++){
+      var c = L[i].split(",");
+      if (c.length < 2) continue;
+      var o = {};
+      H.forEach(function(h,j){ o[h]=(c[j]||"").trim(); });
+      R.push({
+        nom:o.nom||"Pièce", prix:o.prix||"", tail:o.tail||"",
+        desc:o.desc||"", img:o.img||"",
+        c:o.c||"#C9B79A", d:o.d||"#8E7A5C"
+      });
+    }
+    return R;
+  }
+  function chargerPieces(){
+    if (!SHEET_CSV) return;
+    fetch(SHEET_CSV).then(function(r){return r.text();}).then(function(t){
+      var p = lireCSV(t);
+      if (!p.length) return;
+      PIECES = p.slice(0,6);
+      stage.querySelectorAll('.hanger').forEach(function(el){ el.remove(); });
+      hangers = [];
+      construireCintres();
+      onScroll();
+    }).catch(function(){});
+  }
+
   var PEEK = [[-92,-24,-11],[-44,-52,-6],[-16,-70,-2],[22,-68,3],[56,-50,7],[96,-22,12]];
   // positions finales calculées selon la largeur de l'écran pour éviter tout débordement
   function computeEnd(){
