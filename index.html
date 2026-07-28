@@ -631,9 +631,37 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   function urlImage(u){
     if (!u) return "";
     u = String(u).trim();
-    var m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=[^&]*&)?id=)([\w-]{16,})/);
+
+    // certaines cellules arrivent sous forme de formule =IMAGE("...")
+    var f = u.match(/^=?\s*image\s*\(\s*["']([^"']+)["']/i);
+    if (f) u = f[1].trim();
+
+    var m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=[^&]*&)?id=|thumbnail\?(?:[^&]*&)?id=)([\w-]{16,})/);
     if (m) return "https://lh3.googleusercontent.com/d/" + m[1] + "=w800";
+
+    // tout ce qui n'est pas une URL exploitable est ignoré : évite d'injecter
+    // un texte quelconque dans l'attribut href de l'image
+    if (!/^(https?:|data:image\/)/i.test(u)) return "";
     return u;
+  }
+
+  // les en-têtes du Sheet varient d'un tableur à l'autre : on accepte
+  // plusieurs libellés pour une même donnée
+  var ALIAS = {
+    nom:  ["nom","name","titre","article","piece","pièce"],
+    prix: ["prix","price","tarif"],
+    tail: ["tail","taille","size"],
+    desc: ["desc","description","descriptif","texte"],
+    img:  ["img","image","photo","visuel","url","lien","picture","lien image","url image"],
+    c:    ["c","couleur","color"],
+    d:    ["d","couleur2","accent"]
+  };
+  function champ(o, cle){
+    var noms = ALIAS[cle];
+    for (var i=0;i<noms.length;i++){
+      if (o[noms[i]]) return o[noms[i]];
+    }
+    return "";
   }
 
   function lireCSV(t){
@@ -646,12 +674,21 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
       if (!c || c.length < 2) continue;
       var o = {};
       H.forEach(function(h,j){ o[h]=(c[j]||"").trim(); });
-      if (!o.nom && !o.img) continue;
+      var nom = champ(o,'nom'), img = urlImage(champ(o,'img'));
+      if (!nom && !img) continue;
       R.push({
-        nom:o.nom||"Pièce", prix:o.prix||"", tail:o.tail||"",
-        desc:o.desc||"", img:urlImage(o.img||""),
-        c:o.c||"#C9B79A", d:o.d||"#8E7A5C"
+        nom:nom||"Pièce", prix:champ(o,'prix'), tail:champ(o,'tail'),
+        desc:champ(o,'desc'), img:img,
+        c:champ(o,'c')||"#C9B79A", d:champ(o,'d')||"#8E7A5C"
       });
+    }
+
+    // aide au diagnostic : visible dans la console du navigateur
+    window.__fripSheet = { entetes:H, pieces:R };
+    if (R.length && !R.some(function(p){ return p.img; })){
+      console.warn("Frip'Vie — aucune photo lue. Colonnes trouvées : " + H.join(" | ")
+        + "\nLa colonne image doit contenir l'URL en texte. Une image insérée dans la"
+        + " cellule (Insertion > Image dans la cellule) est exportée vide en CSV.");
     }
     return R;
   }
