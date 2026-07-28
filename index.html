@@ -231,7 +231,17 @@ nav.dark .panier:hover{background:var(--cream);color:var(--night)}
 }
 .modal-overlay.open .modal-card{transform:none}
 .modal-visual{background:var(--paper);position:relative;min-height:320px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.modal-visual img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+/* filter/transform remis a none explicitement : rien ne doit se propager
+   depuis l'overlay, dont le backdrop-filter ne concerne que l'arriere-plan */
+.modal-visual img{
+  width:100%;height:100%;object-fit:cover;object-position:center;
+  position:absolute;inset:0;margin:auto;
+  image-rendering:auto;filter:none;transform:none;
+}
+/* source trop petite pour remplir le cadre : l'agrandir la rendrait floue.
+   On la laisse alors a sa resolution native, centree sur le fond neutre du
+   cadre, plutot que de l'etirer. */
+.modal-visual img.nette{width:auto;height:auto;max-width:100%;max-height:100%}
 .modal-visual .vsvg{width:70%;height:auto}
 .modal-body{padding:34px 34px 30px;position:relative}
 .modal-close{
@@ -543,6 +553,23 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   var mErr    = document.getElementById('mErr');
   var current = null;
 
+  /* Une image plus petite que son cadre serait agrandie, donc floue. Dans ce
+     cas on bascule sur .nette : taille native, centree sur le fond neutre.
+     offsetWidth/offsetHeight plutot que getBoundingClientRect : ce sont des
+     valeurs de mise en page, insensibles a l'animation d'ouverture de la carte. */
+  function calerNettete(img){
+    if (!img) return;
+    function caler(){
+      var cadre = img.parentNode;
+      if (!img.naturalWidth || !cadre.offsetWidth) return;
+      var couvre = Math.max(cadre.offsetWidth / img.naturalWidth,
+                            cadre.offsetHeight / img.naturalHeight);
+      img.classList.toggle('nette', couvre > 1);
+    }
+    if (img.complete && img.naturalWidth) caler();
+    else img.addEventListener('load', caler);
+  }
+
   function openModal(product){
     current = product;
     mName.textContent  = product.nom;
@@ -552,6 +579,7 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     // visuel : image si fournie, sinon illustration SVG
     if (product.img){
       mVisual.innerHTML = '<img src="'+product.img+'" alt="'+product.nom+'">';
+      calerNettete(mVisual.querySelector('img'));
     } else if (product.svg){
       mVisual.innerHTML = '<div class="vsvg">'+product.svg+'</div>';
     } else {
@@ -571,6 +599,10 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     current = null;
   }
   document.getElementById('mClose').addEventListener('click', closeModal);
+  // rotation ou redimensionnement fenetre ouverte : le cadre change de taille
+  window.addEventListener('resize', function(){
+    if (modal.classList.contains('open')) calerNettete(mVisual.querySelector('img'));
+  });
   modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && modal.classList.contains('open')) closeModal(); });
 
