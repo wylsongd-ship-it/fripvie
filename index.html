@@ -663,9 +663,12 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   document.querySelectorAll('.curl-io,.rise-io').forEach(function(el){ io.observe(el); });
 
   /* ============ SECTION 2 : LE PORTANT ============ */
-    var SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv91poN16Q3XyYuq_JYRdte7LGg5Os2-w_55lzBGgf49JU2KbbyxWd7XhZPGTOMtIlISeXjnzgUm4-/pub?output=csv";
-  // feuille "hero" : même classeur publié, mais gid différent, donc bien
-  // une feuille distincte de celle du portant. Colonnes : slot, nom, prix, desc, img
+  /* Les deux feuilles du meme classeur publie, chacune designee par son
+     propre gid et par single=true. Sans gid, Google renvoie la premiere
+     feuille publiee : les deux liens ramenaient alors le meme tableau.
+     Feuille du portant, gid=0. Colonnes : nom, prix, tail, desc, img */
+  var SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv91poN16Q3XyYuq_JYRdte7LGg5Os2-w_55lzBGgf49JU2KbbyxWd7XhZPGTOMtIlISeXjnzgUm4-/pub?gid=0&single=true&output=csv";
+  // feuille "hero", gid=1446534022. Colonnes : slot, nom, prix, desc, img
   var SHEET_HERO_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv91poN16Q3XyYuq_JYRdte7LGg5Os2-w_55lzBGgf49JU2KbbyxWd7XhZPGTOMtIlISeXjnzgUm4-/pub?gid=1446534022&single=true&output=csv";
   var PIECES = [
     { nom:"Trench beige",     prix:"32 €", tail:"T. 38", c:"#C9B79A", d:"#8E7A5C", desc:"Trench mi-long en gabardine de coton, ceinture d'origine, doublure intacte. Coupe classique intemporelle." },
