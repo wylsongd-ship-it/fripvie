@@ -603,18 +603,53 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     { nom:"Jean droit",       prix:"22 €", tail:"T. 32", c:"#4A6491", d:"#DCCFA8", desc:"Jean en denim brut coupe droite, taille haute, délavage léger. Une valeur sûre." }
   ];
 
-      function lireCSV(t){
-    var L = t.trim().split(/\r?\n/);
-    var H = L[0].split(",").map(function(x){return x.trim().toLowerCase();});
+  // découpe un CSV en respectant les champs entre guillemets
+  // (indispensable : les descriptions contiennent des virgules, sinon
+  //  toutes les colonnes suivantes — dont img — se décalent)
+  function decouperCSV(t){
+    var lignes = [], ligne = [], val = "", dansGuillemets = false, c;
+    t = t.replace(/^﻿/, "");   // BOM éventuel en tête de fichier
+    for (var i = 0; i < t.length; i++){
+      c = t.charAt(i);
+      if (dansGuillemets){
+        if (c === '"'){
+          if (t.charAt(i+1) === '"'){ val += '"'; i++; }
+          else dansGuillemets = false;
+        } else val += c;
+      }
+      else if (c === '"'){ dansGuillemets = true; }
+      else if (c === ','){ ligne.push(val); val = ""; }
+      else if (c === '\n'){ ligne.push(val); lignes.push(ligne); ligne = []; val = ""; }
+      else if (c !== '\r'){ val += c; }
+    }
+    if (val !== "" || ligne.length){ ligne.push(val); lignes.push(ligne); }
+    return lignes;
+  }
+
+  // un lien de partage Google Drive n'est pas une image : on le convertit
+  // en URL directement affichable
+  function urlImage(u){
+    if (!u) return "";
+    u = String(u).trim();
+    var m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=[^&]*&)?id=)([\w-]{16,})/);
+    if (m) return "https://lh3.googleusercontent.com/d/" + m[1] + "=w800";
+    return u;
+  }
+
+  function lireCSV(t){
+    var lignes = decouperCSV(t);
+    if (!lignes.length) return [];
+    var H = lignes[0].map(function(x){ return x.trim().toLowerCase(); });
     var R = [];
-    for (var i=1;i<L.length;i++){
-      var c = L[i].split(",");
-      if (c.length < 2) continue;
+    for (var i=1;i<lignes.length;i++){
+      var c = lignes[i];
+      if (!c || c.length < 2) continue;
       var o = {};
       H.forEach(function(h,j){ o[h]=(c[j]||"").trim(); });
+      if (!o.nom && !o.img) continue;
       R.push({
         nom:o.nom||"Pièce", prix:o.prix||"", tail:o.tail||"",
-        desc:o.desc||"", img:o.img||"",
+        desc:o.desc||"", img:urlImage(o.img||""),
         c:o.c||"#C9B79A", d:o.d||"#8E7A5C"
       });
     }
@@ -652,15 +687,56 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   var CARD_Z = [2,4,6,6,4,2];
   var OFF = [0,.015,.03,.045,.06,.075];
 
+  /* --- géométrie du cintre (repère du viewBox 190 x 290) ---
+     La barre basse du cintre est à y=102 et va de x=29 à x=161.
+     Le visuel de l'article reprend EXACTEMENT cette largeur (x=29, w=132)
+     et démarre à y=100, soit 2px plus haut, pour passer derrière la barre
+     sans laisser le moindre jour. Le cadre 132 x 186 est en format portrait
+     (~3:4), l'orientation naturelle d'une photo de vêtement : le recadrage
+     est donc minimal. Tout étant exprimé dans le viewBox, l'alignement reste
+     identique quelle que soit la taille d'affichage. */
+  var ART = { x:29, y:100, w:132, h:186, r:4 };
+  var svgSeq = 0;
+
+  function attr(s){
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+                    .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
   function hangerSVG(p){
-    return '<svg viewBox="0 0 190 250" fill="none" aria-hidden="true" style="width:100%;height:auto">'
+    var img = urlImage(p.img);
+    var visuel;
+
+    if (img){
+      var id = 'fripArt' + (++svgSeq);
+      visuel =
+        // aplat de secours : reste visible si la photo ne charge pas
+          '<rect x="'+ART.x+'" y="'+ART.y+'" width="'+ART.w+'" height="'+ART.h+'" rx="'+ART.r+'" fill="'+p.c+'"/>'
+        + '<clipPath id="'+id+'"><rect x="'+ART.x+'" y="'+ART.y+'" width="'+ART.w+'" height="'+ART.h+'" rx="'+ART.r+'"/></clipPath>'
+        // xMidYMid slice = la photo remplit tout le cadre, recadrée sur son centre :
+        // aucune déformation, aucun bord vide, alignement parfait sur le cintre
+        + '<image clip-path="url(#'+id+')" preserveAspectRatio="xMidYMid slice"'
+        + ' x="'+ART.x+'" y="'+ART.y+'" width="'+ART.w+'" height="'+ART.h+'"'
+        + ' href="'+attr(img)+'" xlink:href="'+attr(img)+'"/>'
+        + '<rect x="'+ART.x+'" y="'+ART.y+'" width="'+ART.w+'" height="'+ART.h+'" rx="'+ART.r+'"'
+        + ' fill="none" stroke="#F0EBDF" stroke-width="1.5" opacity=".3"/>';
+    } else {
+      // pas de photo renseignée : silhouette dessinée, calée sur le même cadre
+      visuel =
+          '<path d="M60 100h70l24 32-20 16-8-11v143H64V137l-8 11-20-16z" fill="'+p.c+'"/>'
+        + '<path d="M76 100h38c0 12-8 19-19 19s-19-7-19-19z" fill="'+p.d+'"/>'
+        + '<path d="M95 122v146" stroke="'+p.d+'" stroke-width="3" opacity=".55"/>';
+    }
+
+    return '<svg viewBox="0 0 190 290" fill="none" aria-hidden="true"'
+      + ' xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"'
+      + ' style="width:100%;height:auto">'
+      + visuel
+      // le cintre est tracé APRÈS le visuel : il passe devant et masque le raccord
       + '<path d="M95 16c-9 0-15 6-15 13 0 6 4 9 9 11l6 3v6" stroke="#F0EBDF" stroke-width="4" stroke-linecap="round"/>'
       + '<path d="M95 49L26 92c-5 3-3 10 3 10h132c6 0 8-7 3-10z" stroke="#F0EBDF" stroke-width="4" stroke-linejoin="round"/>'
-      + '<path d="M60 96h70l24 32-20 16-8-11v98H64v-98l-8 11-20-16z" fill="'+p.c+'"/>'
-      + '<path d="M76 96h38c0 12-8 19-19 19s-19-7-19-19z" fill="'+p.d+'"/>'
-      + '<path d="M95 118v96" stroke="'+p.d+'" stroke-width="3" opacity=".55"/>'
-      + '<rect x="118" y="176" width="34" height="22" rx="3" fill="#F2C14E" transform="rotate(7 118 176)"/>'
-      + '<circle cx="126" cy="184" r="3" fill="#141C2E" opacity=".5" transform="rotate(7 118 176)"/>'
+      + '<rect x="116" y="216" width="34" height="22" rx="3" fill="#F2C14E" transform="rotate(7 116 216)"/>'
+      + '<circle cx="124" cy="224" r="3" fill="#141C2E" opacity=".5" transform="rotate(7 116 216)"/>'
       + '</svg>';
   }
 
