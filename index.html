@@ -603,8 +603,8 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     { nom:"Jean droit",       prix:"22 €", tail:"T. 32", c:"#4A6491", d:"#DCCFA8", desc:"Jean en denim brut coupe droite, taille haute, délavage léger. Une valeur sûre." }
   ];
 
-    function lireCSV(t){
-    var L = t.trim().split("\n");
+      function lireCSV(t){
+    var L = t.trim().split(/\r?\n/);
     var H = L[0].split(",").map(function(x){return x.trim().toLowerCase();});
     var R = [];
     for (var i=1;i<L.length;i++){
@@ -620,6 +620,7 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     }
     return R;
   }
+
   function chargerPieces(){
     if (!SHEET_CSV) return;
     fetch(SHEET_CSV).then(function(r){return r.text();}).then(function(t){
