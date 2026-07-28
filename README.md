@@ -4,9 +4,9 @@ Site vitrine fictif pour une friperie indépendante, avec système de réservati
 click & collect. Projet réalisé pour explorer les animations au scroll et
 l'intégration d'un tunnel de réservation sans backend.
 
-🔗 **[Voir la démo](https://portfoliowylsongd.netlify.app/)**
+🔗 **[Voir la démo](https://fripvie.vercel.app/)**
 
-![Aperçu du site Frip'Vie](capture.png)
+![Aperçu du site Frip'Vie](IMG_0227.jpeg)
 
 ## Le concept
 
@@ -30,7 +30,7 @@ identité visuelle inspirée des étiquettes de prix et de la mercerie.
 - **Un seul fichier** autonome, images encodées en base64 (WebP)
 - Animations au scroll pilotées à la main en JavaScript (calcul de progression + interpolation)
 - Réservation sans backend : génération d'un lien `wa.me` pré-rempli
-- Hébergé sur **Netlify**
+- Hébergé sur **Vercel**
 
 ## Ce que j'ai appris
 
