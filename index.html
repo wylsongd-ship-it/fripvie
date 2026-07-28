@@ -594,6 +594,9 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
 
   /* ============ SECTION 2 : LE PORTANT ============ */
     var SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv91poN16Q3XyYuq_JYRdte7LGg5Os2-w_55lzBGgf49JU2KbbyxWd7XhZPGTOMtIlISeXjnzgUm4-/pub?output=csv";
+  // feuille "hero" : même classeur publié, mais gid différent, donc bien
+  // une feuille distincte de celle du portant. Colonnes : slot, nom, prix, desc, img
+  var SHEET_HERO_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv91poN16Q3XyYuq_JYRdte7LGg5Os2-w_55lzBGgf49JU2KbbyxWd7XhZPGTOMtIlISeXjnzgUm4-/pub?gid=1446534022&single=true&output=csv";
   var PIECES = [
     { nom:"Trench beige",     prix:"32 €", tail:"T. 38", c:"#C9B79A", d:"#8E7A5C", desc:"Trench mi-long en gabardine de coton, ceinture d'origine, doublure intacte. Coupe classique intemporelle." },
     { nom:"Chemise rayée",    prix:"14 €", tail:"T. 41", c:"#E4E0D2", d:"#9AA7BF", desc:"Chemise en popeline rayée bleu et blanc, col boutonné, très peu portée. Un basique de vestiaire." },
@@ -648,6 +651,7 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   // les en-têtes du Sheet varient d'un tableur à l'autre : on accepte
   // plusieurs libellés pour une même donnée
   var ALIAS = {
+    slot: ["slot","emplacement","place","position"],
     nom:  ["nom","name","titre","article","piece","pièce"],
     prix: ["prix","price","tarif"],
     tail: ["tail","taille","size"],
@@ -677,14 +681,15 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
       var nom = champ(o,'nom'), img = urlImage(champ(o,'img'));
       if (!nom && !img) continue;
       R.push({
+        slot:champ(o,'slot'),
         nom:nom||"Pièce", prix:champ(o,'prix'), tail:champ(o,'tail'),
         desc:champ(o,'desc'), img:img,
         c:champ(o,'c')||"#C9B79A", d:champ(o,'d')||"#8E7A5C"
       });
     }
 
-    // aide au diagnostic : visible dans la console du navigateur
-    window.__fripSheet = { entetes:H, pieces:R };
+    // aide au diagnostic : une entrée par feuille lue (portant, hero)
+    (window.__fripSheet = window.__fripSheet || []).push({ entetes:H, pieces:R });
     if (R.length && !R.some(function(p){ return p.img; })){
       console.warn("Frip'Vie — aucune photo lue. Colonnes trouvées : " + H.join(" | ")
         + "\nLa colonne image doit contenir l'URL en texte. Une image insérée dans la"
@@ -881,6 +886,72 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     el.addEventListener('click', open);
     el.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } });
   });
+
+  /* ============ HERO piloté par le Google Sheet ============ */
+  /* Les trois emplacements du hero, repérés par la colonne "slot" :
+       vedette -> le grand polaroid + le texte "PIÈCE DU MOIS"
+       mini1   -> première vignette en bas à gauche
+       mini2   -> seconde vignette
+     Rien n'est créé ni supprimé : on ne fait que remplacer le contenu des
+     éléments déjà en place. Si la feuille est vide ou injoignable, le codé
+     en dur reste affiché tel quel. */
+  var HERO_SLOTS = {
+    vedette: { sel:'.polaroid.snap', desc:'.love p' },
+    mini1:   { sel:'.thumbs .thumb:nth-child(1)' },
+    mini2:   { sel:'.thumbs .thumb:nth-child(2)' }
+  };
+
+  function remplirSlotHero(cle, p){
+    var conf = HERO_SLOTS[cle];
+    if (!conf) return false;
+    var carte = document.querySelector(conf.sel);
+    if (!carte) return false;
+
+    if (p.img){
+      var image = carte.querySelector('img');
+      if (image){
+        image.src = p.img;
+        if (p.nom) image.alt = p.nom + ", seconde main";
+      }
+    }
+
+    // légende du polaroid, au format « nom · prix »
+    var cap = carte.querySelector('.cap');
+    if (cap && (p.nom || p.prix)){
+      cap.textContent = [p.nom, p.prix].filter(Boolean).join(' · ');
+    }
+
+    // seule la vedette porte un descriptif, dans le bloc "PIÈCE DU MOIS"
+    if (conf.desc && p.desc){
+      var d = document.querySelector(conf.desc);
+      if (d) d.textContent = p.desc;
+    }
+
+    // la fiche de réservation doit décrire la pièce réellement affichée
+    var fiche = HERO_PRODUCTS.filter(function(h){ return h.sel === conf.sel; })[0];
+    if (fiche){
+      if (p.nom)  fiche.nom  = p.nom;
+      if (p.prix) fiche.prix = p.prix;
+      if (p.desc) fiche.desc = p.desc;
+      if (p.tail) fiche.tail = p.tail;   // colonne facultative : sinon on garde la taille en dur
+    }
+    return true;
+  }
+
+  function chargerHero(){
+    if (!SHEET_HERO_CSV) return;
+    fetch(SHEET_HERO_CSV).then(function(r){ return r.text(); }).then(function(t){
+      var pieces = lireCSV(t);
+      if (!pieces.length) return;                 // feuille vide -> on garde le codé en dur
+      pieces.forEach(function(p){
+        // tolère « Vedette », « MINI 1 », etc.
+        var cle = (p.slot||"").toLowerCase().replace(/\s+/g,'');
+        if (cle) remplirSlotHero(cle, p);
+      });
+    }).catch(function(){});                       // injoignable -> on garde le codé en dur
+  }
+  chargerHero();
+
   onScroll();
 
   /* ============ SECTION 3 : ORBITE ============ */
