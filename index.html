@@ -680,6 +680,8 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     function open(){
       window.__fripReserve({
         nom:p.nom, prix:p.prix, tail:p.tail, desc:p.desc,
+                    img: p.img || null,
+
         svg: hangerSVG(p)
       });
     }
