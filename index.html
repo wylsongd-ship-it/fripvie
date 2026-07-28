@@ -655,7 +655,8 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   function hangerSVG(p){
     return '<svg viewBox="0 0 190 250" fill="none" aria-hidden="true" style="width:100%;height:auto">'
       + '<path d="M95 16c-9 0-15 6-15 13 0 6 4 9 9 11l6 3v6" stroke="#F0EBDF" stroke-width="4" stroke-linecap="round"/>'
-      + '<path d="M95 49L26 92c-5 3-3 10 3 10h132c6 0 8-7 3-10z" stroke="#F0EBDF" stroke-width="4" stroke-linejoin="round"/>'
+      + '<path d="M95 49L26 92c-5 3-3 10 3 10h132c6 0 8-7 3-10z" stroke="#F0EBDF" stroke-width="4" stroke-linejoin="round"/>'      + (p.img ? '<image href="'+p.img+'" x="42" y="96" width="106" height="130" preserveAspectRatio="xMidYMid slice"/>' : '<path d="M60 96h70l24 32-20 16-8-11v98H64v-98l-8 11-20-16z" fill="'+p.c+'"/><path d="M76 96h38c0 12-8 19-19 19s-19-7-19-19z" fill="'+p.d+'"/>')
+
       + '<path d="M60 96h70l24 32-20 16-8-11v98H64v-98l-8 11-20-16z" fill="'+p.c+'"/>'
       + '<path d="M76 96h38c0 12-8 19-19 19s-19-7-19-19z" fill="'+p.d+'"/>'
       + '<path d="M95 118v96" stroke="'+p.d+'" stroke-width="3" opacity=".55"/>'
