@@ -285,6 +285,30 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;font-size:11.5px;letter-spacing:1.4px;opacity:.55}
 
 /* ============ RESPONSIVE ============ */
+/* Ecran large mais court : tablette en paysage, portable 16:9. Le hero est
+   bati sur des reperes fixes en pixels et des ancrages en pourcentage cales
+   pour ~900px de haut ; en dessous, le bloc titre, les vignettes et le bloc
+   "piece du mois" se rejoignent. On compacte le mobilier pour que la premiere
+   vue reste propre, sans rien deplacer sur les ecrans plus hauts. */
+@media (min-width:901px) and (max-height:820px){
+  .h1block{top:76px}
+  .h1line{font-size:clamp(34px,4.5vw,58px)}
+  .sig-your{font-size:clamp(36px,4.9vw,62px)}
+  .sig-your .halo{-webkit-text-stroke-width:13px}
+  .kicker{margin-top:16px;font-size:12.5px;line-height:1.62;max-width:300px}
+  .cta-row{margin-top:18px}
+  .cta{padding:11px 20px;font-size:12.5px}
+  .snap{width:150px;top:9%}
+  .tag-b{top:calc(9% + 224px)}
+  .tag-a{top:36%}
+  /* mise a l'echelle plutot que largeurs forcees : les vignettes gardent
+     leurs proportions et leur inclinaison */
+  .thumbs{bottom:16px;transform:scale(.8);transform-origin:bottom left}
+  .love{top:53%;max-width:200px}
+  .love p{font-size:11.5px;line-height:1.6}
+  .watermark{font-size:62px}
+  .tag-elegance{bottom:calc(15% + 8px)}
+}
 @media (max-width:900px){
   .h1block{position:relative;top:0;left:0;padding:120px 24px 0;max-width:100%}
   .hero{min-height:auto;padding-bottom:40px}
