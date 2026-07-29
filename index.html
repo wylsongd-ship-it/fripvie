@@ -670,6 +670,8 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   var SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv91poN16Q3XyYuq_JYRdte7LGg5Os2-w_55lzBGgf49JU2KbbyxWd7XhZPGTOMtIlISeXjnzgUm4-/pub?gid=0&single=true&output=csv";
   // feuille "hero", gid=1446534022. Colonnes : slot, nom, prix, desc, img
   var SHEET_HERO_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv91poN16Q3XyYuq_JYRdte7LGg5Os2-w_55lzBGgf49JU2KbbyxWd7XhZPGTOMtIlISeXjnzgUm4-/pub?gid=1446534022&single=true&output=csv";
+  // feuille "accessoires", gid=1673274911. Colonnes : nom, prix, tail
+  var SHEET_ACCESSOIRES_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv91poN16Q3XyYuq_JYRdte7LGg5Os2-w_55lzBGgf49JU2KbbyxWd7XhZPGTOMtIlISeXjnzgUm4-/pub?gid=1673274911&single=true&output=csv";
   var PIECES = [
     { nom:"Trench beige",     prix:"32 €", tail:"T. 38", c:"#C9B79A", d:"#8E7A5C", desc:"Trench mi-long en gabardine de coton, ceinture d'origine, doublure intacte. Coupe classique intemporelle." },
     { nom:"Chemise rayée",    prix:"14 €", tail:"T. 41", c:"#E4E0D2", d:"#9AA7BF", desc:"Chemise en popeline rayée bleu et blanc, col boutonné, très peu portée. Un basique de vestiaire." },
@@ -1037,6 +1039,9 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     { a:90,  l:"(06)", c:"#8E7A5C", d:"#F2C14E" }
   ];
   var R = 250, HALF = 75, GAP = 12;
+  // la feuille accessoires ne fournit ni couleur ni position : on reprend
+  // la palette de l'orbite, appliquee dans l'ordre des lignes
+  var TEINTES = BAGS.map(function(b){ return { c:b.c, d:b.d }; });
 
   function bagSVG(b){
     return '<svg viewBox="0 0 150 150" fill="none" class="art" aria-hidden="true">'
@@ -1048,14 +1053,60 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
 
   var center = document.getElementById('orbitCenter');
   var items = [];
-  BAGS.forEach(function(b,i){
-    var el = document.createElement('div');
-    el.className = 'orb-item';
-    el.innerHTML = bagSVG(b) + '<span class="orb-label">'+b.l+'</span>';
-    center.appendChild(el);
-    items.push({ el:el, lab:el.querySelector('.orb-label'), a:b.a });
-    setTimeout(function(){ el.classList.add('in'); }, 0);
-  });
+  var angle = 0, paused = false;
+
+  function construireOrbite(liste){
+    center.innerHTML = '';
+    items = [];
+    liste.forEach(function(b,i){
+      var el = document.createElement('div');
+      el.className = 'orb-item';
+      el.innerHTML = bagSVG(b) + '<span class="orb-label">'+b.l+'</span>';
+      // accessoire venant du tableur : cliquable, comme le portant et le hero
+      if (b.nom){
+        el.setAttribute('role','button');
+        el.setAttribute('tabindex','0');
+        var ouvrir = function(){
+          window.__fripReserve({
+            nom:b.nom, prix:b.prix, tail:b.tail, desc:b.desc,
+            img:b.img || null, svg:bagSVG(b)
+          });
+        };
+        el.addEventListener('click', ouvrir);
+        el.addEventListener('keydown', function(e){
+          if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); ouvrir(); }
+        });
+      }
+      el.addEventListener('mouseenter', function(){ paused = true; });
+      el.addEventListener('mouseleave', function(){ paused = false; });
+      center.appendChild(el);
+      items.push({ el:el, lab:el.querySelector('.orb-label'), a:b.a });
+      setTimeout(function(){ el.classList.add('in'); }, 0);
+    });
+    place();
+  }
+  construireOrbite(BAGS);
+
+  function chargerAccessoires(){
+    if (!SHEET_ACCESSOIRES_CSV) return;
+    fetch(SHEET_ACCESSOIRES_CSV).then(function(r){ return r.text(); }).then(function(t){
+      var lignes = lireCSV(t);
+      if (!lignes.length) return;              // feuille vide -> on garde le codé en dur
+      var n = Math.min(lignes.length, 6);      // l'orbite est dimensionnée pour 6 au plus
+      var liste = [];
+      for (var i=0;i<n;i++){
+        var a = lignes[i], teinte = TEINTES[i % TEINTES.length];
+        liste.push({
+          a: 270 + i * (360/n),                // réparties régulièrement sur le cercle
+          l: a.prix ? a.nom + ' · ' + a.prix : a.nom,
+          c: teinte.c, d: teinte.d,            // la feuille ne fournit pas de couleur
+          nom: a.nom, prix: a.prix, tail: a.tail, desc: a.desc, img: a.img
+        });
+      }
+      construireOrbite(liste);
+    }).catch(function(){});                    // injoignable -> on garde le codé en dur
+  }
+  chargerAccessoires();
 
   var oio = new IntersectionObserver(function(es){
     es.forEach(function(e){
@@ -1068,12 +1119,6 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   }, { rootMargin:'-80px' });
   var ow = document.getElementById('orbitWrap');
   if (ow) oio.observe(ow);
-
-  var angle = 0, paused = false;
-  items.forEach(function(o){
-    o.el.addEventListener('mouseenter', function(){ paused = true; });
-    o.el.addEventListener('mouseleave', function(){ paused = false; });
-  });
 
   function place(){
     var scale = window.innerWidth < 900 ? .72 : 1;
