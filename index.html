@@ -212,6 +212,15 @@ nav.dark .panier:hover{background:var(--cream);color:var(--night)}
 .orb-item .art{width:150px;height:150px;transition:transform .3s ease,filter .3s ease;transform:scale(0);opacity:0}
 .orb-item.in .art{transform:scale(1);opacity:1;transition:transform .5s cubic-bezier(.34,1.56,.64,1),opacity .5s ease,filter .3s ease}
 .orb-item:hover .art{transform:scale(1.12);filter:drop-shadow(0 8px 24px rgba(27,42,74,.2))}
+/* Photo d'accessoire : meme empreinte 150x150 que l'illustration, pour ne pas
+   deplacer les reperes de l'orbite (rayon, position des etiquettes). Le cadre
+   blanc reprend le langage polaroid du reste du site ; box-sizing global fait
+   que la bordure reste a l'interieur des 150px. */
+.orb-item img.art{
+  object-fit:cover;object-position:center;image-rendering:auto;
+  background:var(--paper);border:6px solid #fff;border-radius:3px;
+  box-shadow:2px 8px 22px rgba(27,42,74,.15);
+}
 .orb-label{position:absolute;top:0;left:0;font-family:'Instrument Serif',serif;font-size:15px;color:rgba(27,42,74,.62);white-space:nowrap;pointer-events:none;letter-spacing:-.3px}
 .manifesto{display:flex;align-items:flex-start;gap:16px;max-width:420px;margin:44px auto 0;padding:0 34px;position:relative;z-index:5}
 .manifesto svg{width:34px;height:34px;flex-shrink:0;margin-top:10px;opacity:.75}
@@ -1061,7 +1070,14 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     liste.forEach(function(b,i){
       var el = document.createElement('div');
       el.className = 'orb-item';
-      el.innerHTML = bagSVG(b) + '<span class="orb-label">'+b.l+'</span>';
+      // photo de l'article si la colonne image est renseignee, sinon le sac dessine
+      el.innerHTML = (b.img
+          ? '<img class="art" loading="lazy" src="'+attr(b.img)+'" alt="'+attr(b.nom||'')+'">'
+          : bagSVG(b))
+        + '<span class="orb-label">'+b.l+'</span>';
+      // photo injoignable : on revient a l'illustration plutot que de laisser un trou
+      var photo = el.querySelector('img.art');
+      if (photo) photo.addEventListener('error', function(){ photo.outerHTML = bagSVG(b); });
       // accessoire venant du tableur : cliquable, comme le portant et le hero
       if (b.nom){
         el.setAttribute('role','button');
