@@ -130,7 +130,9 @@ nav.dark .panier:hover{background:var(--cream);color:var(--night)}
    le polaroid a une hauteur fixe en px, donc un badge en pourcentage derivait
    et finissait par masquer la legende nom/prix sur les ecrans courts.
    La valeur reproduit le rapport d'origine, et le tient a toutes les hauteurs. */
-.tag-b{top:calc(15% + 253px);left:calc(50% + 280px);transform:rotate(5deg);background:var(--stamp);color:#fff;z-index:16}
+/* le min() borne le badge a l'interieur de la fenetre : sa position ideale
+   sortait du cadre entre 900 et 960px de large */
+.tag-b{top:calc(15% + 253px);left:min(calc(50% + 280px),calc(100% - 215px));transform:rotate(5deg);background:var(--stamp);color:#fff;z-index:16}
 .tag-b::before{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.6)}
 
 .polaroid{
@@ -332,7 +334,25 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   .h1block{position:relative;top:0;left:0;padding:120px 24px 0;max-width:100%}
   .hero{min-height:auto;padding-bottom:40px}
   .model{position:relative;height:52vh;margin:24px auto 0;opacity:1;animation:none}
-  .love,.watermark,.arrow,.snap,.tag-a,.tag-b,.tag-elegance{display:none}
+  /* Seuls les ornements restent masques. La piece du mois (.snap et .love) est
+     du contenu : elle vient du tableur et doit s'afficher, en flux, apres la
+     silhouette et avant les deux vignettes. */
+  .watermark,.arrow,.tag-elegance{display:none}
+  .snap{
+    position:relative;top:auto;left:auto;width:210px;
+    margin:30px auto 0;animation:none;transform:rotate(-2deg);
+  }
+  .love{
+    position:relative;top:auto;right:auto;transform:none;
+    max-width:340px;margin:22px auto 0;padding:0 24px;
+  }
+  .love h4{justify-content:center}
+  .love p{text-align:center;font-size:12.5px}
+  /* les deux badges reprennent le flux, centres l'un sous l'autre */
+  .tag-a,.tag-b{
+    position:relative;top:auto;left:auto;right:auto;
+    width:fit-content;margin:14px auto 0;
+  }
   .thumbs{position:relative;bottom:auto;left:auto;justify-content:center;margin-top:26px;padding:0 20px}
   .rail-sec{height:300vh}
   .rail-stage{transform:scale(.62)}
@@ -340,6 +360,16 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   nav{padding:14px 18px}
   .navlinks{gap:16px;font-size:12.5px}
   .navlinks .hide-sm{display:none}
+}
+@media (max-width:720px){
+  /* Grille de la modale : sans min-width:0, les deux champs Prenom/Nom imposent
+     leur largeur intrinseque a la colonne, qui deborde alors de la carte. */
+  .modal-visual,.modal-body{min-width:0}
+  .modal-fields{flex-wrap:wrap}
+  .modal-fields input{flex:1 1 130px}
+  /* etiquette de l'orbite centree sous l'article plutot que projetee vers
+     l'exterieur : un nom long sortait de l'ecran */
+  .orb-label{top:auto;bottom:-20px;left:50%;font-size:12px}
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
@@ -797,9 +827,26 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
 
   var PEEK = [[-92,-24,-11],[-44,-52,-6],[-16,-70,-2],[22,-68,3],[56,-50,7],[96,-22,12]];
   // positions finales calculées selon la largeur de l'écran pour éviter tout débordement
+  // doit rester egal au scale applique a .rail-stage par la CSS sous 900px
+  var ECHELLE_PORTANT = .62;
+
   function computeEnd(){
     var vw = window.innerWidth;
-    var margin = vw < 900 ? 20 : 60;      // marge sur les bords
+    if (vw <= 900){
+      /* Six cintres sur une ligne ne tiennent pas : ils faisaient 117px de large
+         pour 36px d'ecart, et cinq legendes sur six se chevauchaient. On passe
+         donc a trois par rangee, sur deux rangees. Les positions sont exprimees
+         dans le repere de .rail-stage, que la CSS reduit ensuite : on divise
+         la largeur disponible par cette echelle. */
+      var dispo = vw / ECHELLE_PORTANT - 40;
+      var pas = Math.min(dispo / 3, 210);
+      var arr = [];
+      for (var i=0;i<6;i++){
+        arr.push([ -pas + pas*(i % 3), -130 + Math.floor(i / 3)*360, 0 ]);
+      }
+      return arr;
+    }
+    var margin = 60;                       // marge sur les bords
     var usable = vw - margin*2;
     var slot = usable / 6;                 // largeur allouée par cintre
     var maxSlot = 210;                     // ne pas trop espacer sur grand écran
@@ -1137,13 +1184,25 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   if (ow) oio.observe(ow);
 
   function place(){
-    var scale = window.innerWidth < 900 ? .72 : 1;
-    var r = R * scale, ld = (HALF*scale) + GAP;
+    var vw = window.innerWidth;
+    var petit = vw <= 720;
+    /* Sur mobile le rayon et la taille des articles sont bornes pour que rien
+       ne sorte de l'ecran : l'orbite d'origine demandait 510px de large pour
+       une fenetre de 390. L'etiquette etant alors centree sous l'article par
+       la CSS, on reserve sa demi-largeur dans le calcul du rayon. */
+    /* au-dessus du seuil mobile, l'orbite pleine taille reclame environ 1060px
+       de large avec ses etiquettes : on la reduit proportionnellement en deca,
+       sans rien changer a partir de cette largeur */
+    var scale = petit ? .55 : (vw <= 900 ? .72 : Math.min(1, vw/1060));
+    var r = petit ? Math.max(84, Math.min(R * .72, vw/2 - 84)) : R * scale;
+    var ld = (HALF*scale) + GAP;
     items.forEach(function(o){
       var rad = (angle + o.a) * Math.PI / 180;
       var x = Math.cos(rad)*r, y = Math.sin(rad)*r;
       o.el.style.transform = 'translate('+x+'px,'+y+'px) translate(-50%,-50%) scale('+scale+')';
-      o.lab.style.transform = 'translate('+(Math.cos(rad)*(ld+HALF*scale))+'px,'+(Math.sin(rad)*(ld+HALF*scale))+'px)';
+      o.lab.style.transform = petit
+        ? 'translateX(-50%)'
+        : 'translate('+(Math.cos(rad)*(ld+HALF*scale))+'px,'+(Math.sin(rad)*(ld+HALF*scale))+'px)';
     });
   }
   function tick(){
