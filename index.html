@@ -210,7 +210,10 @@ nav.dark .panier:hover{background:var(--cream);color:var(--night)}
 .sig-match{font-size:clamp(38px,6vw,64px);line-height:1;letter-spacing:-.032em}
 .sig-match .halo{-webkit-text-stroke-width:13px}
 .orbit-center{position:absolute;top:50%;left:50%;width:0;height:0}
-.orb-item{position:absolute;z-index:6;cursor:pointer}
+/* z-index 12 : les articles passent devant le titre (z-index 10). C'est le
+   propos de la section, et cela reprend le langage de collage du reste du
+   site, ou les polaroids et les etiquettes se superposent au texte. */
+.orb-item{position:absolute;z-index:12;cursor:pointer}
 .orb-item .art{width:150px;height:150px;transition:transform .3s ease,filter .3s ease;transform:scale(0);opacity:0}
 .orb-item.in .art{transform:scale(1);opacity:1;transition:transform .5s cubic-bezier(.34,1.56,.64,1),opacity .5s ease,filter .3s ease}
 .orb-item:hover .art{transform:scale(1.12);filter:drop-shadow(0 8px 24px rgba(27,42,74,.2))}
@@ -223,7 +226,17 @@ nav.dark .panier:hover{background:var(--cream);color:var(--night)}
   background:var(--paper);border:6px solid #fff;border-radius:3px;
   box-shadow:2px 8px 22px rgba(27,42,74,.15);
 }
-.orb-label{position:absolute;top:0;left:0;font-family:'Instrument Serif',serif;font-size:15px;color:rgba(27,42,74,.62);white-space:nowrap;pointer-events:none;letter-spacing:-.3px}
+/* L'etiquette est ancree sous sa propre photo, et non plus projetee vers
+   l'exterieur de l'orbite : on lisait "Sac noir cuir 11 EUR" a 200px de
+   l'article auquel il se rapportait. */
+.orb-label{
+  position:absolute;top:calc(100% + 9px);left:50%;
+  font-family:'Instrument Serif',serif;font-size:15px;color:rgba(27,42,74,.62);
+  white-space:nowrap;pointer-events:none;letter-spacing:-.3px;
+  /* fond exactement de la couleur de la section : invisible sur fond uni,
+     mais l'etiquette reste lisible quand elle passe devant le titre */
+  background:var(--paper);padding:1px 8px;border-radius:999px;
+}
 .manifesto{display:flex;align-items:flex-start;gap:16px;max-width:420px;margin:44px auto 0;padding:0 34px;position:relative;z-index:5}
 .manifesto svg{width:34px;height:34px;flex-shrink:0;margin-top:10px;opacity:.75}
 .manifesto p{margin:8px 0 0;font-size:13px;line-height:1.78;color:rgba(27,42,74,.78);text-align:justify}
@@ -367,9 +380,7 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   .modal-visual,.modal-body{min-width:0}
   .modal-fields{flex-wrap:wrap}
   .modal-fields input{flex:1 1 130px}
-  /* etiquette de l'orbite centree sous l'article plutot que projetee vers
-     l'exterieur : un nom long sortait de l'ecran */
-  .orb-label{top:auto;bottom:-20px;left:50%;font-size:12px}
+  .orb-label{font-size:12px}
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
@@ -1094,7 +1105,9 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     { a:210, l:"(05)", c:"#E4E0D2", d:"#D6483B" },
     { a:90,  l:"(06)", c:"#8E7A5C", d:"#F2C14E" }
   ];
-  var R = 250, HALF = 75, GAP = 12;
+  // HALF et GAP servaient a projeter l'etiquette vers l'exterieur de l'orbite ;
+  // elle est desormais ancree sous sa photo, ils n'ont plus d'emploi.
+  var R = 250;
   // la feuille accessoires ne fournit ni couleur ni position : on reprend
   // la palette de l'orbite, appliquee dans l'ordre des lignes
   var TEINTES = BAGS.map(function(b){ return { c:b.c, d:b.d }; });
@@ -1195,18 +1208,17 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
        sans rien changer a partir de cette largeur */
     var scale = petit ? .55 : (vw <= 900 ? .72 : Math.min(1, vw/1060));
     var r = petit ? Math.max(84, Math.min(R * .72, vw/2 - 84)) : R * scale;
-    var ld = (HALF*scale) + GAP;
     items.forEach(function(o){
       var rad = (angle + o.a) * Math.PI / 180;
       var x = Math.cos(rad)*r, y = Math.sin(rad)*r;
       o.el.style.transform = 'translate('+x+'px,'+y+'px) translate(-50%,-50%) scale('+scale+')';
-      o.lab.style.transform = petit
-        ? 'translateX(-50%)'
-        : 'translate('+(Math.cos(rad)*(ld+HALF*scale))+'px,'+(Math.sin(rad)*(ld+HALF*scale))+'px)';
+      // l'etiquette est calee sous sa photo par la CSS : il ne reste qu'a la centrer
+      o.lab.style.transform = 'translateX(-50%)';
     });
   }
   function tick(){
-    if (!paused && !reduce) angle += 0.12;
+    // rotation ralentie : les articles restent lisibles au passage
+    if (!paused && !reduce) angle += 0.07;
     place();
     requestAnimationFrame(tick);
   }
