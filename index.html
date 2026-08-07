@@ -286,6 +286,30 @@ nav.dark .panier:hover{background:var(--cream);color:var(--night)}
   box-shadow:0 1px 3px rgba(20,28,46,.25);transition:width .3s ease,background .3s ease;
 }
 .mv-point.actif{width:20px;background:#fff}
+/* --- photo en grand ---
+   La fiche recadre pour remplir son cadre ; ici l'image est contenue en
+   entier, quelles que soient ses proportions. */
+.zoom-overlay{
+  position:fixed;inset:0;z-index:300;background:rgba(20,28,46,.95);
+  opacity:0;pointer-events:none;transition:opacity .28s ease;
+}
+.zoom-overlay.open{opacity:1;pointer-events:auto}
+.zoom-scene{position:absolute;inset:0;overflow:hidden}
+.zoom-scene img{
+  position:absolute;inset:0;margin:auto;
+  width:auto;height:auto;max-width:92vw;max-height:80vh;
+  object-fit:contain;image-rendering:auto;filter:none;
+}
+.zoom-close{
+  position:absolute;top:14px;right:14px;z-index:4;
+  width:40px;height:40px;border-radius:50%;font-size:17px;
+  background:rgba(255,255,255,.16);color:#fff;
+  display:flex;align-items:center;justify-content:center;transition:background .2s;
+}
+.zoom-close:hover{background:rgba(255,255,255,.3)}
+.zoom-scene .mv-points{bottom:26px}
+/* signale que la photo de la fiche s'ouvre en grand */
+.modal-visual img{cursor:zoom-in}
 .modal-body{padding:34px 34px 30px;position:relative}
 .modal-close{
   position:absolute;top:16px;right:16px;width:34px;height:34px;border-radius:50%;
@@ -575,6 +599,12 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
   </div>
 </div>
 
+<!-- ============ PHOTO EN GRAND ============ -->
+<div class="zoom-overlay" id="zoom" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Photo en grand">
+  <button class="zoom-close" id="zoomClose" aria-label="Fermer la photo">✕</button>
+  <div class="zoom-scene" id="zoomScene"></div>
+</div>
+
 <!-- ================= FOOTER ================= -->
 <footer id="depot">
   <div class="foot-top">
@@ -645,95 +675,139 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
      Seules la photo active et la photo sortante sont visibles pendant la
      transition, ce qui rend la boucle continue : passer de la derniere a la
      premiere ne provoque aucun retour en arriere visible. */
-  var mvImages = [], mvIndex = 0, mvSortante = null, mvSens = 1;
+  var mvImages = [];   // photos de l'article ouvert, partagees par les deux vues
 
-  function peindreVisuel(decalage){
-    var suivi = typeof decalage === 'number' && decalage !== 0;
-    mVisual.querySelectorAll('img').forEach(function(im, i){
-      var actif = i === mvIndex, sortante = i === mvSortante && !actif;
-      im.style.opacity   = actif ? 1 : 0;
-      im.style.transform = 'translateX(' +
-        (actif ? (decalage || 0) : (sortante ? -mvSens * 38 : mvSens * 38)) + 'px)';
-      im.style.transition = suivi ? 'none'
-        : 'opacity 380ms ease, transform 480ms cubic-bezier(.22,1,.36,1)';
-      im.style.zIndex = actif ? 2 : (sortante ? 1 : 0);
+  /* Fabrique de galerie : la fiche et la vue plein ecran partagent le meme
+     comportement (fleches, points, glisser, boucle) sur deux cadres distincts.
+     onTap est appele quand on effleure la photo sans avoir glisse. */
+  function creerGalerie(cadre, onTap){
+    var etat = { index:0, sortante:null, sens:1, glisse:false, departX:0, aBouge:false };
+
+    function peindre(decalage){
+      var suivi = typeof decalage === 'number' && decalage !== 0;
+      cadre.querySelectorAll('img').forEach(function(im, i){
+        var actif = i === etat.index, sortante = i === etat.sortante && !actif;
+        im.style.opacity   = actif ? 1 : 0;
+        im.style.transform = 'translateX(' +
+          (actif ? (decalage || 0) : (sortante ? -etat.sens * 38 : etat.sens * 38)) + 'px)';
+        im.style.transition = suivi ? 'none'
+          : 'opacity 380ms ease, transform 480ms cubic-bezier(.22,1,.36,1)';
+        im.style.zIndex = actif ? 2 : (sortante ? 1 : 0);
+      });
+      cadre.querySelectorAll('.mv-point').forEach(function(p, i){
+        p.classList.toggle('actif', i === etat.index);
+        p.setAttribute('aria-current', i === etat.index ? 'true' : 'false');
+      });
+    }
+
+    function aller(vers, sens){
+      if (mvImages.length < 2 || vers === etat.index) return;
+      etat.sortante = etat.index; etat.sens = sens; etat.index = vers;
+      peindre(0);
+    }
+    // boucle infinie : le modulo ramene a la premiere photo apres la derniere
+    function suivant(){ aller((etat.index + 1) % mvImages.length, 1); }
+    function precedent(){ aller((etat.index - 1 + mvImages.length) % mvImages.length, -1); }
+
+    function monter(nom, depart){
+      etat.index = depart || 0; etat.sortante = null; etat.sens = 1;
+      var html = mvImages.map(function(src, i){
+        return '<img src="' + attr(src) + '" alt="' + attr(nom || '')
+          + ' — photo ' + (i + 1) + ' sur ' + mvImages.length + '">';
+      }).join('');
+      if (mvImages.length > 1){
+        html += '<button type="button" class="mv-fleche mv-prec" aria-label="Photo précédente">‹</button>'
+             +  '<button type="button" class="mv-fleche mv-suiv" aria-label="Photo suivante">›</button>'
+             +  '<div class="mv-points">'
+             +  mvImages.map(function(_, i){
+                  return '<button type="button" class="mv-point" data-i="' + i
+                    + '" aria-label="Photo ' + (i + 1) + '"></button>';
+                }).join('')
+             +  '</div>';
+      }
+      cadre.innerHTML = html;
+      peindre(0);
+    }
+
+    // ecouteurs poses une seule fois : le contenu du cadre est reconstruit a
+    // chaque ouverture, la delegation evite de les rebrancher
+    cadre.addEventListener('click', function(e){
+      if (e.target.closest('.mv-suiv')) return suivant();
+      if (e.target.closest('.mv-prec')) return precedent();
+      var pt = e.target.closest('.mv-point');
+      if (pt) return aller(parseInt(pt.dataset.i, 10),
+                           parseInt(pt.dataset.i, 10) > etat.index ? 1 : -1);
+      // un glisser produit aussi un clic : on ne declenche pas l'agrandissement
+      if (etat.aBouge){ etat.aBouge = false; return; }
+      if (onTap && e.target.tagName === 'IMG') onTap(etat.index);
     });
-    mVisual.querySelectorAll('.mv-point').forEach(function(p, i){
-      p.classList.toggle('actif', i === mvIndex);
-      p.setAttribute('aria-current', i === mvIndex ? 'true' : 'false');
-    });
+
+    /* glisser tactile */
+    cadre.addEventListener('touchstart', function(e){
+      etat.aBouge = false;
+      if (mvImages.length < 2) return;
+      etat.departX = e.touches[0].clientX; etat.glisse = true;
+    }, { passive:true });
+    cadre.addEventListener('touchmove', function(e){
+      if (!etat.glisse) return;
+      var dx = e.touches[0].clientX - etat.departX;
+      if (Math.abs(dx) > 10) etat.aBouge = true;
+      peindre(dx * 0.45);
+    }, { passive:true });
+    function finGlisse(e){
+      if (!etat.glisse) return;
+      etat.glisse = false;
+      var dx = (e.changedTouches[0].clientX - etat.departX) * 0.45;
+      peindre(0);
+      if (dx <= -28) suivant();
+      else if (dx >= 28) precedent();
+    }
+    cadre.addEventListener('touchend', finGlisse);
+    cadre.addEventListener('touchcancel', finGlisse);
+
+    return { monter:monter, aller:aller, suivant:suivant, precedent:precedent, etat:etat };
   }
 
-  function allerVisuel(vers, sens){
-    if (mvImages.length < 2 || vers === mvIndex) return;
-    mvSortante = mvIndex; mvSens = sens; mvIndex = vers;
-    peindreVisuel(0);
+  /* ---- vue plein ecran ----
+     La fiche recadre la photo pour remplir son cadre (object-fit cover), donc
+     une partie est coupee. Un appui sur la photo l'ouvre en grand, entiere. */
+  var zoom      = document.getElementById('zoom');
+  var zoomScene = document.getElementById('zoomScene');
+  var galerieZoom = creerGalerie(zoomScene, null);
+
+  function ouvrirZoom(depart){
+    if (!mvImages.length) return;
+    galerieZoom.monter(current ? current.nom : '', depart);
+    zoom.classList.add('open');
+    zoom.setAttribute('aria-hidden','false');
   }
-  // boucle infinie : le modulo ramene a la premiere photo apres la derniere
-  function visuelSuivant(){ allerVisuel((mvIndex + 1) % mvImages.length, 1); }
-  function visuelPrecedent(){ allerVisuel((mvIndex - 1 + mvImages.length) % mvImages.length, -1); }
+  function fermerZoom(){
+    if (!zoom.classList.contains('open')) return;
+    zoom.classList.remove('open');
+    zoom.setAttribute('aria-hidden','true');
+    // la fiche reprend la photo consultee en grand
+    galerieFiche.aller(galerieZoom.etat.index,
+                       galerieZoom.etat.index > galerieFiche.etat.index ? 1 : -1);
+  }
+  zoom.addEventListener('click', function(e){
+    // clic sur le fond ou sur la croix : on referme
+    if (e.target === zoom || e.target.closest('.zoom-close')) fermerZoom();
+  });
+  document.getElementById('zoomClose').addEventListener('click', fermerZoom);
+
+  var galerieFiche = creerGalerie(mVisual, ouvrirZoom);
 
   function construireVisuel(product){
     mvImages = (product.images && product.images.length)
       ? product.images.slice(0, 3)
       : (product.img ? [product.img] : []);
-    mvIndex = 0; mvSortante = null; mvSens = 1;
-
     if (!mvImages.length){
       mVisual.innerHTML = product.svg ? '<div class="vsvg">' + product.svg + '</div>' : '';
       return;
     }
-    var html = mvImages.map(function(src, i){
-      return '<img src="' + attr(src) + '" alt="' + attr(product.nom || '')
-        + ' — photo ' + (i + 1) + ' sur ' + mvImages.length + '">';
-    }).join('');
-    if (mvImages.length > 1){
-      html += '<button type="button" class="mv-fleche mv-prec" aria-label="Photo précédente">‹</button>'
-           +  '<button type="button" class="mv-fleche mv-suiv" aria-label="Photo suivante">›</button>'
-           +  '<div class="mv-points">'
-           +  mvImages.map(function(_, i){
-                return '<button type="button" class="mv-point" data-i="' + i
-                  + '" aria-label="Photo ' + (i + 1) + '"></button>';
-              }).join('')
-           +  '</div>';
-    }
-    mVisual.innerHTML = html;
+    galerieFiche.monter(product.nom, 0);
     mVisual.querySelectorAll('img').forEach(calerNettete);
-    peindreVisuel(0);
   }
-
-  // ecouteurs poses une seule fois : le contenu du cadre est reconstruit a
-  // chaque ouverture, la delegation evite de les rebrancher
-  mVisual.addEventListener('click', function(e){
-    if (e.target.closest('.mv-suiv')) return visuelSuivant();
-    if (e.target.closest('.mv-prec')) return visuelPrecedent();
-    var pt = e.target.closest('.mv-point');
-    if (pt){
-      var i = parseInt(pt.dataset.i, 10);
-      allerVisuel(i, i > mvIndex ? 1 : -1);
-    }
-  });
-
-  /* glisser tactile */
-  var mvDepartX = 0, mvGlisse = false;
-  mVisual.addEventListener('touchstart', function(e){
-    if (mvImages.length < 2) return;
-    mvDepartX = e.touches[0].clientX; mvGlisse = true;
-  }, { passive:true });
-  mVisual.addEventListener('touchmove', function(e){
-    if (!mvGlisse) return;
-    peindreVisuel((e.touches[0].clientX - mvDepartX) * 0.45);
-  }, { passive:true });
-  function finGlisse(e){
-    if (!mvGlisse) return;
-    mvGlisse = false;
-    var dx = (e.changedTouches[0].clientX - mvDepartX) * 0.45;
-    peindreVisuel(0);
-    if (dx <= -28) visuelSuivant();
-    else if (dx >= 28) visuelPrecedent();
-  }
-  mVisual.addEventListener('touchend', finGlisse);
-  mVisual.addEventListener('touchcancel', finGlisse);
 
   function openModal(product){
     current = product;
@@ -751,6 +825,9 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     setTimeout(function(){ mFirst.focus(); }, 350);
   }
   function closeModal(){
+    // la photo en grand ne doit jamais survivre a la fermeture de la fiche
+    zoom.classList.remove('open');
+    zoom.setAttribute('aria-hidden','true');
     modal.classList.remove('open');
     modal.setAttribute('aria-hidden','true');
     document.body.style.overflow = '';
@@ -762,7 +839,18 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     if (modal.classList.contains('open')) calerNettete(mVisual.querySelector('img'));
   });
   modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
-  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && modal.classList.contains('open')) closeModal(); });
+  document.addEventListener('keydown', function(e){
+    var enGrand = zoom.classList.contains('open');
+    // Echap referme d'abord la photo en grand, la fiche seulement ensuite
+    if (e.key === 'Escape'){
+      if (enGrand) return fermerZoom();
+      if (modal.classList.contains('open')) closeModal();
+      return;
+    }
+    if (!enGrand || mvImages.length < 2) return;
+    if (e.key === 'ArrowRight') galerieZoom.suivant();
+    else if (e.key === 'ArrowLeft') galerieZoom.precedent();
+  });
 
   document.getElementById('mReserve').addEventListener('click', function(){
     if (!current) return;
