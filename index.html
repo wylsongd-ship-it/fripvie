@@ -267,6 +267,25 @@ nav.dark .panier:hover{background:var(--cream);color:var(--night)}
    cadre, plutot que de l'etirer. */
 .modal-visual img.nette{width:auto;height:auto;max-width:100%;max-height:100%}
 .modal-visual .vsvg{width:70%;height:auto}
+/* --- carrousel de la fiche : fleches et points, masques s'il n'y a qu'une
+   seule photo puisqu'ils ne sont alors tout simplement pas generes --- */
+.mv-fleche{
+  position:absolute;top:50%;transform:translateY(-50%);z-index:3;
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(255,255,255,.88);color:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;line-height:1;padding-bottom:3px;
+  box-shadow:0 2px 10px rgba(20,28,46,.18);transition:background .2s;
+}
+.mv-fleche:hover{background:#fff}
+.mv-prec{left:12px}
+.mv-suiv{right:12px}
+.mv-points{position:absolute;left:0;right:0;bottom:12px;z-index:3;display:flex;justify-content:center;gap:6px}
+.mv-point{
+  width:6px;height:6px;border-radius:999px;background:rgba(255,255,255,.62);
+  box-shadow:0 1px 3px rgba(20,28,46,.25);transition:width .3s ease,background .3s ease;
+}
+.mv-point.actif{width:20px;background:#fff}
 .modal-body{padding:34px 34px 30px;position:relative}
 .modal-close{
   position:absolute;top:16px;right:16px;width:34px;height:34px;border-radius:50%;
@@ -620,21 +639,110 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     else img.addEventListener('load', caler);
   }
 
+  /* ============ CARROUSEL DE LA FICHE PRODUIT ============
+     Jusqu'a trois photos par article (colonnes img, img2, img3 du tableur).
+     Une seule photo : ni fleches ni points, ils ne sont pas generes.
+     Seules la photo active et la photo sortante sont visibles pendant la
+     transition, ce qui rend la boucle continue : passer de la derniere a la
+     premiere ne provoque aucun retour en arriere visible. */
+  var mvImages = [], mvIndex = 0, mvSortante = null, mvSens = 1;
+
+  function peindreVisuel(decalage){
+    var suivi = typeof decalage === 'number' && decalage !== 0;
+    mVisual.querySelectorAll('img').forEach(function(im, i){
+      var actif = i === mvIndex, sortante = i === mvSortante && !actif;
+      im.style.opacity   = actif ? 1 : 0;
+      im.style.transform = 'translateX(' +
+        (actif ? (decalage || 0) : (sortante ? -mvSens * 38 : mvSens * 38)) + 'px)';
+      im.style.transition = suivi ? 'none'
+        : 'opacity 380ms ease, transform 480ms cubic-bezier(.22,1,.36,1)';
+      im.style.zIndex = actif ? 2 : (sortante ? 1 : 0);
+    });
+    mVisual.querySelectorAll('.mv-point').forEach(function(p, i){
+      p.classList.toggle('actif', i === mvIndex);
+      p.setAttribute('aria-current', i === mvIndex ? 'true' : 'false');
+    });
+  }
+
+  function allerVisuel(vers, sens){
+    if (mvImages.length < 2 || vers === mvIndex) return;
+    mvSortante = mvIndex; mvSens = sens; mvIndex = vers;
+    peindreVisuel(0);
+  }
+  // boucle infinie : le modulo ramene a la premiere photo apres la derniere
+  function visuelSuivant(){ allerVisuel((mvIndex + 1) % mvImages.length, 1); }
+  function visuelPrecedent(){ allerVisuel((mvIndex - 1 + mvImages.length) % mvImages.length, -1); }
+
+  function construireVisuel(product){
+    mvImages = (product.images && product.images.length)
+      ? product.images.slice(0, 3)
+      : (product.img ? [product.img] : []);
+    mvIndex = 0; mvSortante = null; mvSens = 1;
+
+    if (!mvImages.length){
+      mVisual.innerHTML = product.svg ? '<div class="vsvg">' + product.svg + '</div>' : '';
+      return;
+    }
+    var html = mvImages.map(function(src, i){
+      return '<img src="' + attr(src) + '" alt="' + attr(product.nom || '')
+        + ' — photo ' + (i + 1) + ' sur ' + mvImages.length + '">';
+    }).join('');
+    if (mvImages.length > 1){
+      html += '<button type="button" class="mv-fleche mv-prec" aria-label="Photo précédente">‹</button>'
+           +  '<button type="button" class="mv-fleche mv-suiv" aria-label="Photo suivante">›</button>'
+           +  '<div class="mv-points">'
+           +  mvImages.map(function(_, i){
+                return '<button type="button" class="mv-point" data-i="' + i
+                  + '" aria-label="Photo ' + (i + 1) + '"></button>';
+              }).join('')
+           +  '</div>';
+    }
+    mVisual.innerHTML = html;
+    mVisual.querySelectorAll('img').forEach(calerNettete);
+    peindreVisuel(0);
+  }
+
+  // ecouteurs poses une seule fois : le contenu du cadre est reconstruit a
+  // chaque ouverture, la delegation evite de les rebrancher
+  mVisual.addEventListener('click', function(e){
+    if (e.target.closest('.mv-suiv')) return visuelSuivant();
+    if (e.target.closest('.mv-prec')) return visuelPrecedent();
+    var pt = e.target.closest('.mv-point');
+    if (pt){
+      var i = parseInt(pt.dataset.i, 10);
+      allerVisuel(i, i > mvIndex ? 1 : -1);
+    }
+  });
+
+  /* glisser tactile */
+  var mvDepartX = 0, mvGlisse = false;
+  mVisual.addEventListener('touchstart', function(e){
+    if (mvImages.length < 2) return;
+    mvDepartX = e.touches[0].clientX; mvGlisse = true;
+  }, { passive:true });
+  mVisual.addEventListener('touchmove', function(e){
+    if (!mvGlisse) return;
+    peindreVisuel((e.touches[0].clientX - mvDepartX) * 0.45);
+  }, { passive:true });
+  function finGlisse(e){
+    if (!mvGlisse) return;
+    mvGlisse = false;
+    var dx = (e.changedTouches[0].clientX - mvDepartX) * 0.45;
+    peindreVisuel(0);
+    if (dx <= -28) visuelSuivant();
+    else if (dx >= 28) visuelPrecedent();
+  }
+  mVisual.addEventListener('touchend', finGlisse);
+  mVisual.addEventListener('touchcancel', finGlisse);
+
   function openModal(product){
     current = product;
     mName.textContent  = product.nom;
     mPrice.textContent = product.prix;
     mSize.textContent  = product.tail;
     mDesc.textContent  = product.desc;
-    // visuel : image si fournie, sinon illustration SVG
-    if (product.img){
-      mVisual.innerHTML = '<img src="'+product.img+'" alt="'+product.nom+'">';
-      calerNettete(mVisual.querySelector('img'));
-    } else if (product.svg){
-      mVisual.innerHTML = '<div class="vsvg">'+product.svg+'</div>';
-    } else {
-      mVisual.innerHTML = '';
-    }
+    // visuel : photos si fournies, sinon illustration SVG
+    construireVisuel(product);
     mErr.textContent = '';
     mFirst.value = ''; mLast.value = '';
     modal.classList.add('open');
@@ -782,6 +890,10 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     tail: ["tail","taille","size"],
     desc: ["desc","description","descriptif","texte"],
     img:  ["img","image","photo","visuel","url","lien","picture","lien image","url image"],
+    // jusqu'a trois photos par article, la premiere restant celle affichee
+    // dans le portant, le hero et l'orbite
+    img2: ["img2","image2","photo2","visuel2","url2","lien2","img 2","image 2","photo 2"],
+    img3: ["img3","image3","photo3","visuel3","url3","lien3","img 3","image 3","photo 3"],
     c:    ["c","couleur","color"],
     d:    ["d","couleur2","accent"]
   };
@@ -803,12 +915,17 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
       if (!c || c.length < 2) continue;
       var o = {};
       H.forEach(function(h,j){ o[h]=(c[j]||"").trim(); });
-      var nom = champ(o,'nom'), img = urlImage(champ(o,'img'));
-      if (!nom && !img) continue;
+      var nom = champ(o,'nom');
+      // les colonnes vides sont ecartees : une piece peut n'avoir qu'une photo
+      var images = [champ(o,'img'), champ(o,'img2'), champ(o,'img3')]
+        .map(urlImage).filter(Boolean).slice(0,3);
+      if (!nom && !images.length) continue;
       R.push({
         slot:champ(o,'slot'),
         nom:nom||"Pièce", prix:champ(o,'prix'), tail:champ(o,'tail'),
-        desc:champ(o,'desc'), img:img,
+        desc:champ(o,'desc'),
+        img:images[0]||"",    // vignette : toujours la premiere photo
+        images:images,        // galerie complete, pour la fiche produit
         c:champ(o,'c')||"#C9B79A", d:champ(o,'d')||"#8E7A5C"
       });
     }
@@ -940,8 +1057,8 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
     function open(){
       window.__fripReserve({
         nom:p.nom, prix:p.prix, tail:p.tail, desc:p.desc,
-                    img: p.img || null,
-
+        img: p.img || null,
+        images: p.images || null,   // jusqu'a trois photos dans la fiche
         svg: hangerSVG(p)
       });
     }
@@ -1022,7 +1139,9 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
       var img = el.querySelector('img');
       window.__fripReserve({
         nom:p.nom, prix:p.prix, tail:p.tail, desc:p.desc,
-        img: img ? img.src : null
+        // la vignette du hero est la premiere photo ; la galerie vient du tableur
+        img: img ? img.src : null,
+        images: (p.images && p.images.length) ? p.images : null
       });
     }
     el.addEventListener('click', open);
@@ -1076,6 +1195,7 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
       if (p.prix) fiche.prix = p.prix;
       if (p.desc) fiche.desc = p.desc;
       if (p.tail) fiche.tail = p.tail;   // colonne facultative : sinon on garde la taille en dur
+      if (p.images && p.images.length) fiche.images = p.images;
     }
     return true;
   }
@@ -1145,7 +1265,7 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
         var ouvrir = function(){
           window.__fripReserve({
             nom:b.nom, prix:b.prix, tail:b.tail, desc:b.desc,
-            img:b.img || null, svg:bagSVG(b)
+            img:b.img || null, images:b.images || null, svg:bagSVG(b)
           });
         };
         el.addEventListener('click', ouvrir);
@@ -1176,7 +1296,8 @@ footer{background:var(--ink);color:var(--cream);padding:56px 34px 34px}
           a: 270 + i * (360/n),                // réparties régulièrement sur le cercle
           l: a.prix ? a.nom + ' · ' + a.prix : a.nom,
           c: teinte.c, d: teinte.d,            // la feuille ne fournit pas de couleur
-          nom: a.nom, prix: a.prix, tail: a.tail, desc: a.desc, img: a.img
+          nom: a.nom, prix: a.prix, tail: a.tail, desc: a.desc,
+          img: a.img, images: a.images
         });
       }
       construireOrbite(liste);
